@@ -6,10 +6,15 @@ volumes:
 
 networks:
   demo:
+    driver: bridge
+    name: demo
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
-  networks: ['demo']
+  networks:
+    demo:
+      aliases:
+        - n8n
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=postgres
@@ -27,17 +32,28 @@ x-n8n: &service-n8n
 x-ollama: &service-ollama
   image: ollama/ollama:latest
   container_name: ollama
-  networks: ['demo']
+  networks:
+    demo:
+      aliases:
+        - ollama
   restart: unless-stopped
   ports:
     - 11434:11434
   volumes:
     - ollama_storage:/root/.ollama
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:11434"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
 
 x-init-ollama: &init-ollama
   image: ollama/ollama:latest
-  networks: ['demo']
   container_name: ollama-pull-llama
+  networks:
+    demo:
+      aliases:
+        - ollama
   volumes:
     - ollama_storage:/root/.ollama
   entrypoint: /bin/sh
@@ -51,7 +67,10 @@ services:
   postgres:
     image: postgres:16-alpine
     hostname: postgres
-    networks: ['demo']
+    networks:
+      demo:
+        aliases:
+          - postgres
     restart: unless-stopped
     environment:
       - POSTGRES_USER
@@ -100,7 +119,10 @@ services:
     image: qdrant/qdrant
     hostname: qdrant
     container_name: qdrant
-    networks: ['demo']
+    networks:
+      demo:
+        aliases:
+          - qdrant
     restart: unless-stopped
     ports:
       - 6333:6333
@@ -143,7 +165,7 @@ services:
       - ollama-gpu
 
   ollama-pull-llama-gpu-amd:
-    profiles: [gpu-amd]
+    profiles: ["gpu-amd"]
     <<: *init-ollama
     image: ollama/ollama:rocm
     depends_on:
